@@ -13,9 +13,13 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.edhm.productos.api.entities.Producto;
 import com.edhm.productos.api.services.ProductoService;
@@ -50,6 +54,45 @@ public class ProductoController {
 				.header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=\"" + resource.getFilename() + "\"")
 				.header(HttpHeaders.CONTENT_TYPE, Files.probeContentType(Paths.get(STORAGEPATH).resolve(filename)))
 				.header(HttpHeaders.CONTENT_LENGTH, String.valueOf(resource.contentLength())).body(resource);
+	}
+
+	//
+	@PostMapping("/productos")
+	public Producto crear(@RequestParam(name = "imagen", required = false) MultipartFile imagen,
+			@RequestParam("nombre") String nombre, @RequestParam("precio") Double precio,
+			@RequestParam("detalles") String detalles) throws Exception {
+		logger.info("call crear(" + nombre + ", " + precio + ", " + detalles + ", " + imagen + ")");
+		Producto producto = new Producto();
+		producto.setNombre(nombre);
+		producto.setPrecio(precio);
+		producto.setDetalles(detalles);
+		producto.setEstado("1");
+		if (imagen != null && !imagen.isEmpty()) {
+			String filename = System.currentTimeMillis()
+					+ imagen.getOriginalFilename().substring(imagen.getOriginalFilename().lastIndexOf("."));
+			producto.setImagen(filename);
+			if (Files.notExists(Paths.get(STORAGEPATH))) {
+				Files.createDirectories(Paths.get(STORAGEPATH));
+			}
+			Files.copy(imagen.getInputStream(), Paths.get(STORAGEPATH).resolve(filename));
+		}
+		productoService.save(producto);
+		return producto;
+	}
+
+	@DeleteMapping("/productos/{id}")
+	public ResponseEntity<String> eliminar(@PathVariable Long id) {
+		logger.info("call eliminar: " + id);
+		productoService.deleteById(id);
+		return ResponseEntity.ok().body("Registro eliminado");
+	}
+
+	//
+	@GetMapping("/productos/{id}")
+	public Producto obtener(@PathVariable Long id) {
+		logger.info("call obtener: " + id);
+		Producto producto = productoService.findById(id);
+		return producto;
 	}
 
 }
